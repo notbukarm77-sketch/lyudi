@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+rm -rf build_glibc217
+mkdir -p build_glibc217
+
+CXX=${CXX:-g++}
+CC=${CC:-gcc}
+COMMON='-O2 -fPIC -DLINUX -DSAMPGDK_AMALGAMATION -I./sdk -I./src -I./sdk/sampgdk'
+
+$CXX -std=c++17 $COMMON -c src/main.cpp -o build_glibc217/main.o
+$CXX -std=c++17 $COMMON -c sdk/amxplugin.cpp -o build_glibc217/amxplugin.o
+$CC  $COMMON -c sdk/sampgdk/sampgdk.c -o build_glibc217/sampgdk.o
+
+$CXX -shared \
+  build_glibc217/main.o \
+  build_glibc217/amxplugin.o \
+  build_glibc217/sampgdk.o \
+  -static-libstdc++ -static-libgcc \
+  -o build_glibc217/pedestrians.so
+
+file build_glibc217/pedestrians.so
+strings build_glibc217/pedestrians.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -20 || true
