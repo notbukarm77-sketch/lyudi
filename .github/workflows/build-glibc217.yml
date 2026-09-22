@@ -1,27 +1,21 @@
-name: Build pedestrians GLIBC 2.17
+#!/usr/bin/env bash
+set -e
 
-on:
-  workflow_dispatch:
+rm -rf build_glibc217
+mkdir -p build_glibc217
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+CXX=${CXX:-g++}
+CC=${CC:-gcc}
 
-    steps:
-      - name: Download repository
-        uses: actions/checkout@v4
+COMMON="-O2 -fPIC -DLINUX -DSAMPGDK_AMALGAMATION -I./sdk -I./src -I./sdk/sampgdk"
 
-      - name: Build pedestrians.so
-        run: |
-          chmod +x build_glibc217.sh
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/src" \
-            -w /src \
-            quay.io/pypa/manylinux2014_i686 \
-            /bin/bash -lc "chmod +x build_glibc217.sh && ./build_glibc217.sh"
+$CXX -std=c++17 $COMMON -c src/main.cpp -o build_glibc217/main.o
+$CXX -std=c++17 $COMMON -c sdk/amxplugin.cpp -o build_glibc217/amxplugin.o
+$CC $COMMON -c sdk/sampgdk/sampgdk.c -o build_glibc217/sampgdk.o
 
-      - name: Upload pedestrians.so
-        uses: actions/upload-artifact@v4
-        with:
-          name: pedestrians-glibc217
-          path: build_glibc217/pedestrians.so
+$CXX -shared   build_glibc217/main.o   build_glibc217/amxplugin.o   build_glibc217/sampgdk.o   -static-libstdc++ -static-libgcc   -o build_glibc217/pedestrians.so
+
+echo "=== RESULT ==="
+file build_glibc217/pedestrians.so
+echo "=== GLIBC symbols ==="
+strings build_glibc217/pedestrians.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu || true
